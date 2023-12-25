@@ -18,19 +18,17 @@ bucket = env_vars.get('bucket')
 doc_name = env_vars.get('doc_name')
 cert = env_vars.get('cert')
 
+# Initialize Firebase
+cred = credentials.Certificate(cert)  # Add your Firebase credentials
+firebase_admin.initialize_app(cred, {
+    'storageBucket': bucket
+})
+bucket = storage.bucket(doc_name)
+
 @app.route('/',methods = ['GET', 'POST'])
 def proof_of_life():
     return "HELLO BUDDY CONGNIFUSE_AI IS ALIVE"
     
-
-# Initialize Firebase
-cred = credentials.Certificate("cert")  # Add your Firebase credentials
-firebase_admin.initialize_app(cred, {
-    'storageBucket': 'bucket'
-})
-bucket = storage.bucket("doc_name")
-
-
 def download_document(document_name):
     blob = bucket.blob(document_name)
     # Download the file from Firebase
@@ -223,9 +221,9 @@ except ValueError:
 
 # If the default app doesn't exist, initialize it
 if not firebase_admin._apps:
-    cred = credentials.Certificate("/home/davie/Downloads/chatbot-1b12b-firebase-adminsdk-xmzh4-b4f9bd484e.json")
+    cred = credentials.Certificate(cert)
     firebase_admin.initialize_app(cred, {
-        'storageBucket': 'doc_name'
+        'storageBucket': doc_name
     })
 
 @app.route('/dropFiles', methods=['POST'])
@@ -253,4 +251,4 @@ def list_files():
     return jsonify({"files": file_list}), 200
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
