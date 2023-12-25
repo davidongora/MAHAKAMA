@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 import openai
-from firebase_admin import storage, credentials
 import firebase_admin
+from firebase_admin import storage, credentials
 from dotenv import dotenv_values
 from flask_cors import CORS
 import requests
