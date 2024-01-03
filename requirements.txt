@@ -1,4 +1,4 @@
-openAi=0.28
+openAi==0.28
 firebase_admin
 jsonify
 requests
