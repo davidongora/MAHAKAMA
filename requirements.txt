@@ -1,7 +1,10 @@
-openAi
+openAi=0.28
 firebase_admin
 jsonify
 requests
 flask
 CORS
 flask_cors
+gunicorn
+Werkzeug==2.2.2
+python-dotenv
