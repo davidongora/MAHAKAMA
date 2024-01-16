@@ -1,71 +1,95 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request, make_response
 import openai
 import firebase_admin
-from firebase_admin import storage, credentials
+from firebase_admin import storage, credentials, db, firestore
 from dotenv import dotenv_values
 # from flask_cors import CORS
 import requests
-import openai 
-
-env_vars = dotenv_values('./env')
 
 app = Flask(__name__)
 # CORS(app)
 
+env_vars = dotenv_values('./env')
+
 openai.api_key = env_vars.get('key')
-bucket = env_vars.get('bucket')
-doc_name = env_vars.get('doc_name')
-cert = env_vars.get('cert')
+# openai.api_key= "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"
 
 # Initialize Firebase
-cred = credentials.Certificate(cert)  # Add your Firebase credentials
+cred = credentials.Certificate("./chatbot-1b12b-firebase-adminsdk-xmzh4-b4f9bd484e.json")  # Add your Firebase credentials
 firebase_admin.initialize_app(cred, {
-    'storageBucket': bucket
+    'storageBucket': 'gs://chatbot-1b12b.appspot.com'
 })
-bucket = storage.bucket(doc_name)
+bucket = storage.bucket("chatbot-1b12b.appspot.com")
+db = firestore.client()
 
-@app.route('/',methods = ['GET', 'POST'])
-def proof_of_life():
-    return """HELLO BUDDY CONGNIFUSE_AI IS ALIVE \
-        /answerquestions \
-        /combined_learning/<topic> \
-        /learning/<topic> \ 
-        /listFiles \
-        """
-    
 def download_document(document_name):
     blob = bucket.blob(document_name)
     # Download the file from Firebase
     file_contents = blob.download_as_string()
-    return file_contents.decode("utf-8") if file_contents else None
 
+    encodings_to_try = ['utf-8', 'latin-1', 'utf-16', 'windows-1252']  # Add more encodings as needed
+
+    for encoding in encodings_to_try:
+        try:
+            # Try decoding the file contents using the current encoding
+            return file_contents.decode(encoding) if file_contents else None
+        except UnicodeDecodeError:
+            # If decoding fails with this encoding, try the next one
+            continue
+
+    # If all encodings fail, return None or handle the error accordingly
+    return None  # or raise an exception, log an error, etc.
+
+
+@app.route('/', methods=['GET'])
+def proof_of_life():
+    return "i am alive "
 @app.route('/answerquestions', methods=['POST'])
 def answer_document_questions():
     user_input = request.form['user_input']
     document_name = request.form['document_name']  # Assuming this is the name of the file in Firebase Storage
-    # return jsonify({"chatbot_response": "Your response here"}), 200
 
     # Download document content from Firebase Storage
     document_content = download_document(document_name)
 
+    chatbot_response = "Chatbot response placeholder"  # Placeholder response
+
+    # Generate the complete response including user input, chatbot response, and image URL
+    response = {
+        "user_input": user_input,
+        "chatbot_response": chatbot_response,
+        "image_url": "/img/chat.png"  # Adjust this to the actual image URL
+    }
 
     if document_content:
         prompt = f"Document: {document_content}\nUser: {user_input}\nChatbot:"
-        response = openai.Completion.create(
-            engine="text-davinci-003",
+        # Use OpenAI API to generate chatbot response
+        response_from_openai = openai.Completion.create(
+            engine="gpt-3.5-turbo-instruct",
             prompt=prompt,
-            max_tokens=300,
+            max_tokens=4032,
             temperature=0.7,
         )
-        return jsonify({"chatbot_response": response['choices'][0]['text'].strip()}), 200
-    else:
-        return jsonify({"error": "No document available. Please upload a document first."}), 404
-    
-    
-    # topic.py
 
-@app.route('/combined_learning/<topic>', methods=['GET'])  # Combined endpoint
+        # Update the chatbot response in the 'response' dictionary
+        response["chatbot_response"] = response_from_openai['choices'][0]['text'].strip()
+
+    return jsonify(response), 200
+
+    
+    
+#     # topic.py
+
+@app.route('/combined_learning/<topic>', methods=['POST', 'OPTIONS'])
 def combined_learning(topic):
+    if request.method == 'OPTIONS':
+        # Handle CORS preflight request
+        response = make_response()
+        # response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'POST')
+        return response
+
     try:
         # Get the learning program from OpenAI
         learning_program = create_learning_program(topic)
@@ -86,14 +110,13 @@ def combined_learning(topic):
     except Exception as e:
         return jsonify({"error": f"Error retrieving combined response: {e}"}), 500
 
-
-@app.route('/learning/<topic>', methods=['GET']) #endpoint is working
+@app.route('/learning/<topic>', methods=['POST']) #endpoint is working
 def create_learning_program(topic):
     prompt = f"Create a personalized learning program on {topic}. Include sections on introduction, key concepts, examples, practice exercises, and conclusion."
     response = openai.Completion.create(
-        engine="text-davinci-003",
+        engine="gpt-3.5-turbo-instruct",
         prompt=prompt,
-        max_tokens=300,
+        max_tokens=4032,
         temperature=0.7,
     )
     learning_program = response['choices'][0]['text'].strip()
@@ -113,30 +136,6 @@ def get_learning_program(topic=None):
     learning_program = create_learning_program(topic)
     
     return jsonify({"learning_program": learning_program}), 200
-
-
-# @app.route('/learningprogram', methods=['GET']) #endpoint is not working
-# def get_learning_program():
-#     # Extract the topic from the query parameters or form data
-#     topic = request.args.get('topic')
-    
-#     if not topic:
-#         return jsonify({"error": "Topic not provided"}), 400
-    
-#     # Generate the learning program for the given topic
-#     learning_program = create_learning_program(topic)
-    
-#     # Return the learning program as a JSON response
-#     return jsonify({"learning_program": learning_program}), 200
-
-# def get_program_section(learning_program, user_selection):
-#     sections = learning_program.split('\n')[1:-1]
-#     try:
-#         selected_section = sections[int(user_selection) - 1]
-#         return selected_section
-#     except (ValueError, IndexError):
-#         return None
-
 
 
 @app.route('/getcontent/<topic>', methods=["POST"])
@@ -162,7 +161,7 @@ def get_content(topic):
     except Exception as e:
         return jsonify({"error": f"Error fetching content from Wikipedia: {e}"}), 500
     
-# @app.route("/alt/content/<topic>", methods="GET")
+@app.route("/alt/content/<topic>", methods=["GET"])
 def fetch_alternative_content_1(topic):
     try:
         # Use the Wikipedia API to fetch information about the topic
@@ -185,35 +184,8 @@ def fetch_alternative_content_1(topic):
         print(f"Error fetching alternative content 1: {e}")
     return None
 
-# @app.route('/combined_endpoint/<topic>', methods=['GET'])
-# def combined_endpoint(topic):
-#     learning_program = create_learning_program(topic)
-#     content_response = get_content(topic)
-#     content = content_response.json().get('content', None)
-#     alternative_content = fetch_alternative_content_1(topic)
-    
-#     return jsonify({
-#         "learning_program": learning_program,
-#         "wikipedia_content": content,
-#         "alternative_content": alternative_content
-#     }), 200
 
-
-@app.route("/combined/learningProgram/<topic>", methods=["GET"])
-def all_learning(topic):
-    my_program = create_learning_program(topic)
-    learn_response = get_learning_program(topic)
-    top_response = get_content(topic)
-    cont = fetch_alternative_content_1(topic)
-
-    return jsonify({
-        "learning_program": my_program,
-        "wikipedia_content": learn_response.get('learning_program', None),
-        "alternative_content": top_response.get('content', None),
-        "content": cont
-    }), 200
-
-# file.py
+# # file.py
 
 # Initialize Firebase app
 try:
@@ -225,35 +197,65 @@ except ValueError:
 
 # If the default app doesn't exist, initialize it
 if not firebase_admin._apps:
-    cred = credentials.Certificate(cert)
+    cred = credentials.Certificate("./chatbot-1b12b-firebase-adminsdk-xmzh4-b4f9bd484e.json")
     firebase_admin.initialize_app(cred, {
-        'storageBucket': doc_name
+        'storageBucket': 'gs://chatbot-1b12b.appspot.com'
     })
 
 @app.route('/dropFiles', methods=['POST'])
 def store_file():
     try:
-        uploaded_file = request.files['file']
-        if uploaded_file:
-            bucket = storage.bucket('bucket')
-            blob = bucket.blob(uploaded_file.filename)
-            blob.upload_from_file(uploaded_file)
-            return jsonify({"message": "File stored successfully!"}), 200
-        else:
+        # Check if the file is in the request
+        if 'file' not in request.files:
             return jsonify({"message": "No file provided."}), 400
+
+        uploaded_file = request.files['file']
+
+        if uploaded_file.filename == '':
+            return jsonify({"message": "No selected file."}), 400
+
+        # Upload the file to the Google Cloud Storage bucket
+        blob = bucket.blob(uploaded_file.filename)
+        blob.upload_from_file(uploaded_file.stream)
+
+        return jsonify({"message": "File stored successfully!"}), 200
+
     except Exception as e:
         return jsonify({"message": f"An error occurred: {str(e)}"}), 500
 
 # endpoint for getting the file stored in the storage.bucket
 @app.route('/listFiles', methods=['GET'])
 def list_files():
-    bucket = storage.bucket('bucket')  # Access the default storage bucket
+    bucket = storage.bucket('chatbot-1b12b.appspot.com')  # Access the default storage bucket
     blobs = bucket.list_blobs()  # Retrieve a list of blobs (files) in the bucket
 
     file_list = [blob.name for blob in blobs]  # Extracting file names from the blobs
 
     return jsonify({"files": file_list}), 200
 
+# Endpoint to save user input and response to Firebase
+@app.route('/saveUserInteraction', methods=['POST'])
+def save_user_interaction():
+    data = request.json
+    user_input = data.get('user_input')
+    chatbot_response = data.get('chatbot_response')
+    
+    # Save the user interaction to Firebase
+    doc_ref = db.collection('user_interactions').document()
+    doc_ref.set({
+        'user_input': user_input,
+        'chatbot_response': chatbot_response,
+        # Add more fields as needed
+    })
+    
+    return jsonify({"message": "User interaction saved successfully!"}), 200
+
 if __name__ == '__main__':
-    # app.run(host="0.0.0.0", port=5000, debug=True)
     app.run()
+    # app.run(debug=True)
+
+
+# endpoint for saving user inputs and outputs
+#registration 
+#saving history and display them in cards
+#endpoint for sample questions that can be generated from the document select
