@@ -8,3 +8,6 @@ flask_cors
 gunicorn
 Werkzeug==2.2.2
 python-dotenv
+db
+make_response
+firestore
