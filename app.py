@@ -12,7 +12,6 @@ app = Flask(__name__)
 env_vars = dotenv_values('./env')
 
 openai.api_key = env_vars.get('key')
-# openai.api_key= "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"
 
 # Initialize Firebase
 cred = credentials.Certificate("./chatbot-1b12b-firebase-adminsdk-xmzh4-b4f9bd484e.json")  # Add your Firebase credentials

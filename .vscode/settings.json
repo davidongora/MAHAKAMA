@@ -1,0 +1,4 @@
+{
+    "appService.defaultWebAppToDeploy": "/subscriptions/c09b9a27-4eaf-4864-901f-6e8eb72e1acd/resourceGroups/appsvc_linux_centralus_basic/providers/Microsoft.Web/sites/cognifuseAiApi",
+    "appService.deploySubpath": "."
+}
