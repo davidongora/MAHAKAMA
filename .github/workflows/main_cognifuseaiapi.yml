@@ -62,6 +62,6 @@ jobs:
         uses: azure/webapps-deploy@v2
         id: deploy-to-webapp
         with:
-          app-name: 'cognifuseAiApi'
+          app-name: 'cognifuse-api-v3'
           slot-name: 'Production'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_DF50D295BA8440B99C6619A45F1DF4D7 }}
