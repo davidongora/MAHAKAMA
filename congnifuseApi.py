@@ -3,7 +3,7 @@ import openai
 import firebase_admin
 from firebase_admin import storage, credentials
 from dotenv import dotenv_values
-from flask_cors import CORS
+# from flask_cors import CORS
 import requests
 import openai 
 from dotenv import dotenv_values
