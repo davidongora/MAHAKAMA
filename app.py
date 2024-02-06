@@ -1,12 +1,16 @@
 from flask import Flask, jsonify, request, make_response
+from flask_session import Session
 import openai
 import firebase_admin
 from firebase_admin import storage, credentials, db, firestore
 from dotenv import dotenv_values
 # from flask_cors import CORS
 import requests
+import textwrap
 
 app = Flask(__name__)
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
 # CORS(app)
 
 env_vars = dotenv_values('./env')
@@ -51,14 +55,38 @@ def answer_document_questions():
     # Download document content from Firebase Storage
     document_content = download_document(document_name)
 
-    chatbot_response = "Chatbot response placeholder"  # Placeholder response
+    # chunk the document content into smaller pieces
+    chunks = textwrap.wrap(document_content, 2048)
 
+    chatbot_response = ""  # Placeholder response
+
+    for chunk in chunks:
+        prompt = f"Document: {document_content}\nUser: {user_input}\nChatbot:"
+        # Use OpenAI API to generate chatbot response
+        response_from_openai = openai.Completion.create(
+            engine="davinci",
+            prompt=prompt,
+            max_tokens=64,
+            temperature=0.7,
+        )
+
+        # Update the chatbot response in the 'response' dictionary
+        chatbot_response += response_from_openai['choices'][0]['text'].strip()
+
+    
     # Generate the complete response including user input, chatbot response, and image URL
     response = {
         "user_input": user_input,
         "chatbot_response": chatbot_response,
         "image_url": "/img/chat.png"  # Adjust this to the actual image URL
     }
+
+    doc_ref = db.collection('user_interactions').document()
+    doc_ref.set({
+        'user_id': session['user_id'],
+        'user_input': user_input,
+        'chatbot_response': chatbot_response,
+    })
 
     if document_content:
         prompt = f"Document: {document_content}\nUser: {user_input}\nChatbot:"
@@ -242,6 +270,7 @@ def save_user_interaction():
     # Save the user interaction to Firebase
     doc_ref = db.collection('user_interactions').document()
     doc_ref.set({
+        'user_id': session['user_id'],
         'user_input': user_input,
         'chatbot_response': chatbot_response,
         # Add more fields as needed

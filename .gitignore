@@ -1,2 +1,8 @@
 env
+.env
+/env
 chatbot-1b12b-firebase-adminsdk-xmzh4-b4f9bd484e.json
+venv
+.venv
+/venv
+.vscode
