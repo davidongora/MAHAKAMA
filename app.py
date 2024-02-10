@@ -29,6 +29,7 @@ def download_document(document_name):
     blob = bucket.blob(document_name)
     # Download the file from Firebase
     file_contents = blob.download_as_string()
+    print(file_contents)
 
     encodings_to_try = ['utf-8', 'latin-1', 'utf-16', 'windows-1252']  # Add more encodings as needed
 
@@ -56,12 +57,12 @@ def answer_document_questions():
     document_content = download_document(document_name)
 
     # chunk the document content into smaller pieces
-    chunks = textwrap.wrap(document_content, 2048)
+    chunks = textwrap.wrap(document_content, 1024)
 
     chatbot_response = ""  # Placeholder response
-
+    
     for chunk in chunks:
-        prompt = f"Document: {document_content}\nUser: {user_input}\nChatbot:"
+        prompt = f"Document: {chunk}\nUser: {user_input}\nChatbot:"
         # Use OpenAI API to generate chatbot response
         response_from_openai = openai.Completion.create(
             engine="davinci",
@@ -88,6 +89,8 @@ def answer_document_questions():
         'chatbot_response': chatbot_response,
     })
 
+
+    # what is the use of the function below, the above  code seems to be doing it already?
     if document_content:
         prompt = f"Document: {document_content}\nUser: {user_input}\nChatbot:"
         # Use OpenAI API to generate chatbot response
